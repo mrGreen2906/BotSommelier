@@ -24,7 +24,7 @@ public class WineCrawler {
 
     // Funzione principale per eseguire il crawling dei vini
     public void crawlWineData() {
-        int maxPages = MaxPagina();  // Numero massimo di pagine da analizzare
+        int maxPages = 1;  // Numero massimo di pagine da analizzare
 
         for (int page = 1; page <= maxPages; page++) {
             try {

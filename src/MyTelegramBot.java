@@ -1,7 +1,12 @@
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.objects.Location;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
@@ -20,6 +25,10 @@ public class MyTelegramBot extends TelegramLongPollingBot {
     private String suggestedDish = "";
     private final Map<String, String> filters = new HashMap<>(); // Filtri per la query SQL
 
+    private double userLatitude = 0;
+    private double userLongitude = 0;
+
+
     @Override
     public String getBotUsername() {
         return "sommerlier_24Bot";
@@ -30,34 +39,113 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         return "7682384244:AAEGJoNMWs79EneHKA32D_er8APdpVT0vig";
     }
 
+
+
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
-            Message message = update.getMessage();
+            long chatId = update.getMessage().getChatId();
             SendMessage sendMessage = new SendMessage();
-            sendMessage.setChatId(String.valueOf(message.getChatId()));
+            sendMessage.setChatId(chatId);
 
-            if (awaitingConfirmation) {
-                handleDishConfirmation(messageText, sendMessage);
-            } else if (messageText.equalsIgnoreCase("/start")) {
-                suggestRandomDish(sendMessage);
-            } else if (messageText.startsWith("/filtro_prezzo")) {
-                handlePriceFilter(messageText, sendMessage);
-            } else if (messageText.startsWith("/filtro_regione")) {
-                handleRegionFilter(messageText, sendMessage);
-            } else if (messageText.startsWith("/filtro_cantina")) {
-                handleWineryFilter(messageText, sendMessage);
-            } else if (messageText.equalsIgnoreCase("/risultati")) {
-                showResults(sendMessage);
-            } else {
-                sendMessage.setText("Comando non riconosciuto. Usa uno dei seguenti comandi:\n" +
-                        "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
-                sendResponse(sendMessage);
+            if (messageText.equalsIgnoreCase("/start")) {
+                sendOptionsMessage(chatId); // Mostra i pulsanti iniziali per "Ricerca Enoteche" e "Abbina Piatto"
+
+
+                } else if (messageText.startsWith("/filtro_prezzo")) {
+                    // Filtro per prezzo
+                    handlePriceFilter(messageText, sendMessage);
+                } else if (messageText.startsWith("/filtro_regione")) {
+                    // Filtro per regione
+                    handleRegionFilter(messageText, sendMessage);
+                } else if (messageText.startsWith("/filtro_cantina")) {
+                    // Filtro per cantina
+                    handleWineryFilter(messageText, sendMessage);
+                } else if (messageText.equalsIgnoreCase("/risultati")) {
+                    // Mostra i risultati in base ai filtri applicati
+                    showResults(sendMessage);
+                } else {
+                    // Comando non riconosciuto
+                    sendMessage.setText("Comando non riconosciuto. Usa uno dei seguenti comandi:\n" +
+                            "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
+                    sendResponse(sendMessage);
+                }
+        }
+
+        // Gestisce i callback dei pulsanti
+        if (update.hasCallbackQuery()) {
+            String callbackData = update.getCallbackQuery().getData();
+            long chatId = update.getCallbackQuery().getMessage().getChatId();
+            SendMessage sendMessage = new SendMessage();
+            sendMessage.setChatId(chatId);
+
+            switch (callbackData) {
+                case "ricerca_enoteche":
+                    // Quando l'utente sceglie "Ricerca Enoteche"
+                    sendTextMessage(chatId, "Per favore, inviami la tua posizione per trovare le enoteche più vicine o meglio valutate.");
+                    awaitingConfirmation = true; // Attende la posizione
+                    break;
+
+                case "abbina_piatto":
+                    // Quando l'utente sceglie "Abbina Piatto"
+                    sendMessage.setText("Per favore, carica una foto del piatto che desideri abbinare.");
+                    sendResponse(sendMessage);
+                    awaitingConfirmation = true; // Attende una foto
+                    break;
+
+                case "vicinanza":
+                    // Quando l'utente sceglie di ordinare per vicinanza
+                    handleVicinanza(chatId);  // Gestisce la ricerca in base alla vicinanza
+                    break;
+
+                case "valutazione":
+                    // Quando l'utente sceglie di ordinare per valutazione
+                    handleValutazione(chatId);  // Gestisce la ricerca in base alla valutazione
+                    break;
+
+                default:
+                    sendUnknownCallbackResponse(chatId);
+                    break;
             }
         }
+
+        // Gestisce la posizione dell'utente
+        if (update.hasMessage() && update.getMessage().hasLocation()) {
+            Location location = update.getMessage().getLocation();
+            userLatitude = location.getLatitude();
+            userLongitude = location.getLongitude();
+
+            sendTextMessage(update.getMessage().getChatId(),
+                    "Posizione ricevuta! Ora puoi scegliere come ordinare le enoteche (Vicinanza o Valutazione).");
+
+            sendFilterOptions(update.getMessage().getChatId(),0); // Mostra le opzioni "Vicinanza" e "Valutazione"
+        }
+
+        // Gestisce la foto del piatto
+        if (update.hasMessage() && update.getMessage().hasPhoto()) {
+            long chatId = update.getMessage().getChatId(); // Ottieni l'ID della chat
+
+            SendMessage sendMessage = new SendMessage();
+            sendMessage.setChatId(chatId); // Imposta il chatId
+            sendMessage.setText("Foto ricevuta! Provo ad indovinare il piatto.");
+            sendResponse(sendMessage); // Invia il messaggio di conferma
+
+            // Simula il suggerimento casuale di un piatto
+            suggestRandomDish(sendMessage); // Funzione che suggerisce un piatto casuale
+
+            // Invita l'utente ad applicare i filtri con comandi
+            sendMessage.setText("Ora puoi applicare i filtri per la tua ricerca. Usa i seguenti comandi:\n" +
+                    "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>");
+            sendResponse(sendMessage); // Invia il messaggio con le istruzioni sui filtri
+        }
+
+
     }
 
+
+
+    // Metodo per suggerire un piatto casuale
     private void suggestRandomDish(SendMessage sendMessage) {
         String[] dishes = {"Red meats", "Cured meats"};
         suggestedDish = dishes[random.nextInt(dishes.length)];
@@ -65,6 +153,154 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         awaitingConfirmation = true;
         sendResponse(sendMessage);
     }
+
+
+    // Mostra i pulsanti iniziali per "Ricerca Enoteche" e "Abbina Piatto"
+    private void sendOptionsMessage(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText("Scegli un'opzione:");
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+        // Pulsante "Ricerca Enoteche"
+        List<InlineKeyboardButton> row1 = new ArrayList<>();
+        InlineKeyboardButton button1 = new InlineKeyboardButton();
+        button1.setText("Ricerca Enoteche");
+        button1.setCallbackData("ricerca_enoteche");  // Impostiamo il callbackData per "Ricerca Enoteche"
+        row1.add(button1);
+
+        // Pulsante "Abbina Piatto"
+        InlineKeyboardButton button2 = new InlineKeyboardButton();
+        button2.setText("Abbina Piatto");
+        button2.setCallbackData("abbina_piatto");  // Impostiamo il callbackData per "Abbina Piatto"
+        row1.add(button2);
+
+        rows.add(row1);
+        markup.setKeyboard(rows);
+
+        message.setReplyMarkup(markup);
+
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void sendFilterOptions(long chatId, int filterType) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+
+        if (filterType == 0) {
+            message.setText("Scegli un filtro per le enoteche (vicinanza o valutazione):");
+
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+            // Pulsante "Filtra per Vicinanza"
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton button1 = new InlineKeyboardButton();
+            button1.setText("Filtra per Vicinanza");
+            button1.setCallbackData("filtro_vicinanza");
+            row1.add(button1);
+
+            // Pulsante "Filtra per Valutazione"
+            InlineKeyboardButton button2 = new InlineKeyboardButton();
+            button2.setText("Filtra per Valutazione");
+            button2.setCallbackData("filtro_valutazione");
+            row1.add(button2);
+
+            rows.add(row1);
+            markup.setKeyboard(rows);
+
+            message.setReplyMarkup(markup);
+        } else if (filterType == 1) {
+            message.setText("Scegli un filtro per il piatto:");
+
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+            // Pulsante "Filtra per Prezzo"
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton button1 = new InlineKeyboardButton();
+            button1.setText("Filtra per Prezzo");
+            button1.setCallbackData("filtro_prezzo");
+            row1.add(button1);
+
+            // Pulsante "Filtra per Regione"
+            InlineKeyboardButton button2 = new InlineKeyboardButton();
+            button2.setText("Filtra per Regione");
+            button2.setCallbackData("filtro_regione");
+            row1.add(button2);
+
+            // Pulsante "Filtra per Cantina"
+            InlineKeyboardButton button3 = new InlineKeyboardButton();
+            button3.setText("Filtra per Cantina");
+            button3.setCallbackData("filtro_cantina");
+            row1.add(button3);
+
+            rows.add(row1);
+            markup.setKeyboard(rows);
+
+            message.setReplyMarkup(markup);
+        }
+
+        try {
+            execute(message); // Questo invia i pulsanti
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    // Gestisce la vicinanza per ordinare le enoteche
+    private void handleVicinanza(long chatId) {
+        if (userLatitude != 0 && userLongitude != 0) {
+            String nearestEnoteca = EnotecaFind.findNearestEnoteca(userLatitude, userLongitude);
+            sendTextMessage(chatId, "L'enoteca più vicina è: " + nearestEnoteca);
+        } else {
+            sendTextMessage(chatId, "Per favore, invia la tua posizione per trovare le enoteche più vicine.");
+        }
+    }
+
+    // Gestisce la valutazione per ordinare le enoteche
+    private void handleValutazione(long chatId) {
+        if (userLatitude != 0 && userLongitude != 0) {
+            String enotecaByRating = EnotecaFind.findAndSortEnotecasByRating(userLatitude, userLongitude);
+            sendTextMessage(chatId, "Le enoteche ordinate per valutazione sono:\n" + enotecaByRating);
+        } else {
+            sendTextMessage(chatId, "Per favore, invia la tua posizione per trovare le enoteche meglio valutate.");
+        }
+    }
+
+    // Gestisce la risposta sconosciuta per i callback
+    private void sendUnknownCallbackResponse(long chatId) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText("Callback non riconosciuto. Riprova.");
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Risponde con un messaggio di testo generico
+    private void sendTextMessage(long chatId, String text) {
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText(text);
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 
     private void handleDishConfirmation(String messageText, SendMessage sendMessage) {
         if (messageText.equalsIgnoreCase("sì")) {
@@ -107,6 +343,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         sendResponse(sendMessage);
     }
 
+
     private void handleWineryFilter(String messageText, SendMessage sendMessage) {
         String[] parts = messageText.split(" ", 2);
         if (parts.length == 2) {
@@ -117,6 +354,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         }
         sendResponse(sendMessage);
     }
+
 
     private void showResults(SendMessage sendMessage) {
         StringBuilder query = new StringBuilder("SELECT Vino.nome, Vino.prezzo, Vino.annata, Cantina.nome AS cantina " +
@@ -153,6 +391,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         sendResponse(sendMessage);
     }
 
+
     private void sendResponse(SendMessage sendMessage) {
         try {
             execute(sendMessage);
@@ -160,5 +399,13 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             e.printStackTrace();
         }
     }
+
+    private void sendResponse(Update update, String text) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setChatId(String.valueOf(update.getMessage().getChatId()));
+        sendMessage.setText(text);
+        sendResponse(sendMessage); // Richiama il metodo che accetta SendMessage
+    }
+
 
 }

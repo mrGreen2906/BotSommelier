@@ -10,14 +10,6 @@ public class Main {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
-        DatabaseManager dbManager = new DatabaseManager();
-        WineCrawler crawler = new WineCrawler();
-        DatabaseInserter inserter = new DatabaseInserter(crawler.wineQueue, dbManager);
 
-        // Avvia il thread di inserimento nel DB
-        inserter.start();
-
-        // Esegui il crawling
-        crawler.crawlWineData();
     }
 }

@@ -89,7 +89,7 @@ public class EnotecaFind {
         try {
             String latStr = String.valueOf(latitude).replace(",", ".");
             String lonStr = String.valueOf(longitude).replace(",", ".");
-            int radius = 30000; // Raggio massimo di 30 km
+            int radius = 30000; // Raggio massimo di 15 km
 
             HttpClient client = HttpClient.newHttpClient();
             String query = String.format(
@@ -109,7 +109,7 @@ public class EnotecaFind {
 
             // Lista di enoteche con informazioni su nome, latitudine, longitudine e valutazione
             List<Enoteca> enotecas = new ArrayList<>();
-            for (int i = 0; i < elements.length(); i++) {
+            for (int i = 0; i < elements.length() && i < 5; i++) {
                 JSONObject enotecaJson = elements.getJSONObject(i);
                 JSONObject tags = enotecaJson.optJSONObject("tags");
 
@@ -121,7 +121,7 @@ public class EnotecaFind {
                 String name = tags.getString("name");
                 double enotecaLat = enotecaJson.getDouble("lat");
                 double enotecaLon = enotecaJson.getDouble("lon");
-
+                System.out.println(i);
                 String rating = getRatingFromGoogle(name);
                 enotecas.add(new Enoteca(name, enotecaLat, enotecaLon, rating));
             }
