@@ -256,26 +256,6 @@ public class DatabaseManager {
     }
 
 
-    public void saveWine(String nome, String prezzo, String annata, String abbinamento, String cantina, String regione) {
-        try {
-            String query = "INSERT INTO vino (nome, prezzo, annata, abbinamento, id_cantina) VALUES (?, ?, ?, ?, " +
-                    "(SELECT id_cantina FROM cantina WHERE nome = ? AND id_regione = " +
-                    "(SELECT id_regione FROM regione WHERE nome = ?)))";
-            PreparedStatement stmt = connection.prepareStatement(query);
-            stmt.setString(1, nome);
-            stmt.setBigDecimal(2, new java.math.BigDecimal(prezzo));
-            stmt.setString(3, annata);
-            stmt.setString(4, abbinamento);
-            stmt.setString(5, cantina);
-            stmt.setString(6, regione);
-
-            stmt.executeUpdate();
-            stmt.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void close() {
         try {
             if (connection != null && !connection.isClosed()) {

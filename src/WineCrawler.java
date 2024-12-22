@@ -24,7 +24,7 @@ public class WineCrawler {
 
     // Funzione principale per eseguire il crawling dei vini
     public void crawlWineData() {
-        int maxPages = 87;  // Numero massimo di pagine da analizzare
+        int maxPages = MaxPagina();  // Numero massimo di pagine da analizzare
 
         for (int page = 1; page <= maxPages; page++) {
             try {
@@ -117,5 +117,32 @@ public class WineCrawler {
     }
 
     // Classe per memorizzare i dati del vino
+    public int MaxPagina(){
+        int pagina = 0;
+        try {
+            // URL del sito
+            String url = "https://www.signorvino.com/it/vini/";
+
+            // Effettua il parsing della pagina web
+            Document doc = Jsoup.connect(url).get();
+
+            // Seleziona il div con la classe "plpPage-pagination-text"
+            Element paginationDiv = doc.selectFirst("div.plpPage-pagination-text");
+
+            // Seleziona tutti i link all'interno del div con classe "paginationLink"
+            Elements paginationLinks = paginationDiv.select("a.paginationLink");
+
+            // Estrai il numero visibile dell'ultimo link
+            Element lastLink = paginationLinks.last();
+            String visibleNumber = lastLink.text();
+
+            // Stampa il risultato
+            System.out.println("Ultimo numero visibile: " + visibleNumber);
+            pagina = Integer.parseInt(visibleNumber);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return pagina;
+    }
 
 }
