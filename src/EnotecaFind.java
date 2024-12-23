@@ -86,7 +86,6 @@ public class EnotecaFind {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
             return "Errore durante la ricerca delle enoteche.";
         }
     }
@@ -147,7 +146,6 @@ public class EnotecaFind {
 
             return responseMessage.toString();
         } catch (Exception e) {
-            e.printStackTrace();
             return "Errore durante la ricerca delle enoteche.";
         }
     }

@@ -1,59 +1,57 @@
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Location;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.*;
-
+// Classe principale del bot Telegram
 public class MyTelegramBot extends TelegramLongPollingBot {
-
+    //parametri per la connessione al database
     private static final String DB_URL = "jdbc:mysql://localhost:3306/botvino_telegram";
     private static final String DB_USER = "root";
     private static final String DB_PASSWORD = "";
-
-    private final Random random = new Random();
-    private boolean awaitingConfirmation = false;
-    private String suggestedDish = "";
+    //variabili per la gestione delle funzionalità
+    private final Random random = new Random(); // Oggetto Random per suggerire piatti casuali --> manca implementazione AI
+    private boolean awaitingConfirmation = false; // Indica se il bot sta aspettando una conferma
+    private String suggestedDish = ""; // Piatto suggerito dall'utente
     private final Map<String, String> filters = new HashMap<>(); // Filtri per la query SQL
-    private LocalDate lastCrawlDate = LocalDate.now().minusWeeks(2);
+    private LocalDate lastCrawlDate = LocalDate.now().minusWeeks(2); // Data dell'ultimo crawling
     private double userLatitude = 0;
     private double userLongitude = 0;
 
-
+    //ottiene il nome utente del bot
     @Override
     public String getBotUsername() {
         return "sommerlier_24Bot";
     }
-
+    //ottiene il token del bot
     @Override
     public String getBotToken() {
         return "7682384244:AAEGJoNMWs79EneHKA32D_er8APdpVT0vig";
     }
 
 
-
+    //gestisce gli aggiornamenti ricevuti (messaggi, comandi, ecc.)
     @Override
     public void onUpdateReceived(Update update) {
+        //verifica se il messaggio contiene testo
         if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
-            long chatId = update.getMessage().getChatId();
-            SendMessage sendMessage = new SendMessage();
-            sendMessage.setChatId(chatId);
+            String messageText = update.getMessage().getText(); //testo del messaggio ricevuto
+            long chatId = update.getMessage().getChatId(); // ID della chat
+            SendMessage sendMessage = new SendMessage(); //oggetto per inviare risposte
+            sendMessage.setChatId(chatId); //imposta l'ID della chat
 
+            //gestisce la conferma del piatto suggerito
             if(awaitingConfirmation){
                 messageText = update.getMessage().getText();
                 handleDishConfirmation(messageText, sendMessage);
             }
+            // Gestisce il comando /start
            else if (messageText.equalsIgnoreCase("/start")) {
                 //inizia il processo di crawling e inserimento nel database
 
@@ -62,10 +60,10 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                     WineCrawler crawler = new WineCrawler();
                     DatabaseInserter inserter = new DatabaseInserter(crawler.wineQueue, dbManager, crawler);
 
-// Avvia il thread di inserimento nel DB
+                    //avvia il thread di inserimento nel DB
                     inserter.start();
 
-// Esegui il crawling
+                    //esegui il crawling
                     crawler.crawlWineData();
 
 
@@ -105,7 +103,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             }
         }
 
-        // Gestisce i callback dei pulsanti
+        // Gestisce i callback dei pulsanti (quando l'utente clicca su un pulsante inline)
         if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
@@ -114,13 +112,13 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
             switch (callbackData) {
                 case "ricerca_enoteche":
-                    // Quando l'utente sceglie "Ricerca Enoteche"
+                    //quando l'utente sceglie "Ricerca Enoteche"
                     sendTextMessage(chatId, "Per favore, inviami la tua posizione per trovare le enoteche più vicine o meglio valutate.");
                     //awaitingConfirmation = true; // Attende la posizione
                     break;
 
                 case "abbina_piatto":
-                    // Quando l'utente sceglie "Abbina Piatto"
+                    //quando l'utente sceglie "Abbina Piatto"
                     sendMessage.setText("Per favore, carica una foto del piatto che desideri abbinare.");
                     sendResponse(sendMessage);
                     awaitingConfirmation = true; // Attende una foto
@@ -163,8 +161,8 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             sendMessage.setText("Foto ricevuta! Provo ad indovinare il piatto.");
             sendResponse(sendMessage); // Invia il messaggio di conferma
 
-            // Simula il suggerimento casuale di un piatto
-            suggestRandomDish(sendMessage); // Funzione che suggerisce un piatto casuale
+            // Simula il suggerimento casuale di un piatto --> qui dovrebbe esserci il modello AI
+            suggestRandomDish(sendMessage);
             if(awaitingConfirmation){
                 String messageText = update.getMessage().getText();
                 handleDishConfirmation(messageText, sendMessage);
@@ -222,7 +220,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione errore pulsanti abbina-piatto e ricerca-enoteche");;
         }
     }
 
@@ -286,9 +284,9 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         }
 
         try {
-            execute(message); // Questo invia i pulsanti
+            execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione errore nell'inserimento dei filtri");
         }
     }
 
@@ -321,7 +319,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione ERRORE nel metodo sendUnknownCallbackResponse(long chatId)");;
         }
     }
 
@@ -333,30 +331,33 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.out.println("Errore nell'invio del messaggio");;
         }
     }
 
 
-
+    // Metodo per gestire la conferma del piatto selezionato
     private void handleDishConfirmation(String messageText, SendMessage sendMessage) {
+        // Se l'utente conferma "sì", mostra i comandi per filtrare la ricerca
         if (messageText.equalsIgnoreCase("sì")) {
             sendMessage.setText("Perfetto! Ora puoi usare i comandi per filtrare la tua ricerca:\n" +
                     "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
             awaitingConfirmation = false;
         } else {
+            // Se l'utente fornisce un piatto personalizzato, lo memorizza e continua
             suggestedDish = messageText;
             sendMessage.setText("Grazie! Userò il piatto: " + suggestedDish + ". Ora puoi usare i comandi per filtrare la tua ricerca:\n" +
                     "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
             awaitingConfirmation = false;
         }
-        sendResponse(sendMessage);
+        sendResponse(sendMessage); // Invia la risposta all'utente
     }
 
+    // Metodo per gestire il filtro per prezzo
     private void handlePriceFilter(String messageText, SendMessage sendMessage) {
-        String[] parts = messageText.split(" ");
-        if (parts.length == 2 && parts[1].contains("-")) {
-            String[] range = parts[1].split("-");
+        String[] parts = messageText.split(" "); // Divide il messaggio in due parti
+        if (parts.length == 2 && parts[1].contains("-")) { // Se il comando è nel formato corretto
+            String[] range = parts[1].split("-"); // Divide il range di prezzo
             if (range.length == 2) {
                 filters.put("prezzo", "Vino.prezzo BETWEEN " + range[0] + " AND " + range[1]);
                 sendMessage.setText("Filtro per prezzo applicato: " + parts[1]);
@@ -369,10 +370,11 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         sendResponse(sendMessage);
     }
 
+    // Metodo per gestire il filtro per regione
     private void handleRegionFilter(String messageText, SendMessage sendMessage) {
         String[] parts = messageText.split(" ", 2);
         if (parts.length == 2) {
-            filters.put("regione", "Regione.nome = '" + parts[1] + "'");
+            filters.put("regione", "Regione.nome = '" + parts[1] + "'"); // Aggiunge il filtro per regione
             sendMessage.setText("Filtro per regione applicato: " + parts[1]);
         } else {
             sendMessage.setText("Formato del comando non valido. Usa: /filtro_regione <nome regione>");
@@ -380,7 +382,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         sendResponse(sendMessage);
     }
 
-
+    // Metodo per gestire il filtro per cantina
     private void handleWineryFilter(String messageText, SendMessage sendMessage) {
         String[] parts = messageText.split(" ", 2);
         if (parts.length == 2) {
@@ -392,17 +394,18 @@ public class MyTelegramBot extends TelegramLongPollingBot {
         sendResponse(sendMessage);
     }
 
-
+    // Metodo per mostrare i risultati della ricerca
     private void showResults(SendMessage sendMessage) {
+        // Crea la query SQL per selezionare i vini filtrati
         StringBuilder query = new StringBuilder("SELECT Vino.nome, Vino.prezzo, Vino.annata, Cantina.nome AS cantina " +
                 "FROM Vino " +
                 "INNER JOIN Cantina ON Vino.id_cantina = Cantina.id_cantina " +
                 "INNER JOIN Regione ON Cantina.id_regione = Regione.id_regione");
-
+        // Aggiunge i filtri alla query se presenti
         if (!filters.isEmpty()) {
             query.append(" WHERE ").append(String.join(" AND ", filters.values()));
         }
-        query.append(" LIMIT 3");
+        query.append(" LIMIT 3"); // Limita i risultati a 3 vini
 
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
              Statement stmt = conn.createStatement();
@@ -411,6 +414,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             if (!rs.isBeforeFirst()) {
                 sendMessage.setText("Nessun vino trovato con i filtri selezionati.");
             } else {
+                // Costruisce una lista dei primi 3 vini trovati
                 StringBuilder results = new StringBuilder("Ecco i primi 3 vini trovati:\n");
                 while (rs.next()) {
                     results.append(String.format("Vino: %s\nPrezzo: %.2f\nAnnata: %d\nCantina: %s\n\n",
@@ -419,24 +423,24 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                             rs.getInt("annata"),
                             rs.getString("cantina")));
                 }
-                sendMessage.setText(results.toString());
+                sendMessage.setText(results.toString()); // Mostra i risultati all'utente
             }
         } catch (SQLException e) {
-            e.printStackTrace();
             sendMessage.setText("Errore nel recupero dei dati dal database.");
         }
         sendResponse(sendMessage);
     }
 
-
+    // Metodo per inviare la risposta all'utente
     private void sendResponse(SendMessage sendMessage) {
         try {
-            execute(sendMessage);
+            execute(sendMessage); // Esegue l'invio del messaggio tramite l'API di Telegram
         } catch (TelegramApiException e) {
-            e.printStackTrace();
+            System.out.println("Errore nel metodo sendResponse(SendMessage sendMessage)");
         }
     }
 
+    //versione precedente
     private void sendResponse(Update update, String text) {
         SendMessage sendMessage = new SendMessage();
         sendMessage.setChatId(String.valueOf(update.getMessage().getChatId()));

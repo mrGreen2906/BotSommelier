@@ -1,6 +1,5 @@
+//La classe gestisce tutte le operazioni relative al database MySQL
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/botvino_telegram";
@@ -14,7 +13,6 @@ public class DatabaseManager {
             connection = DriverManager.getConnection(DB_URL, USER, PASSWORD);
             resetDatabase();
         } catch (SQLException e) {
-            e.printStackTrace();
             throw new RuntimeException("Impossibile connettersi al database.");
         }
     }
@@ -33,7 +31,7 @@ public class DatabaseManager {
             }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione: ERRORE nel reset del DB");
         }
     }
 
@@ -108,7 +106,7 @@ public class DatabaseManager {
             System.out.println("Informazioni sul vino salvate con successo!");
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione: ERRORE nel salvataggio delle info nel DB");
         }
     }
 
@@ -152,7 +150,6 @@ public class DatabaseManager {
         }
     }
 
-    //va riformulata
     // Metodo per inserire nella tabella 'comporre' (aggiunto l'ID del vino)
     private void insertComporre(Connection conn, int vinoId, int uvaId, String ruolo) throws SQLException {
         String insertComporre = "INSERT INTO comporre (id_vino, id_uva, ruolo) VALUES (?, ?, ?)";
@@ -262,7 +259,7 @@ public class DatabaseManager {
                 connection.close();
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Attenzione: ERRORE nella chiusura del DB");;
         }
     }
 
