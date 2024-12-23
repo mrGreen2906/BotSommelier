@@ -22,10 +22,10 @@ public class WineCrawler {
         this.wineQueue = new LinkedBlockingQueue<>();
     }
 
-    // Funzione principale per eseguire il crawling dei vini
+    //funzione principale per eseguire il crawling dei vini
     public void crawlWineData() {
-        int maxPages = 1;  // Numero massimo di pagine da analizzare
-
+        //int maxPages = MaxPagina();  // Numero massimo di pagine da analizzare
+        int maxPages = 1;
         for (int page = 1; page <= maxPages; page++) {
             try {
                 String url = WINE_LIST_URL + "?start=" + (page - 1) * 20;
@@ -71,7 +71,7 @@ public class WineCrawler {
                 System.err.println("Errore durante il crawling: " + e.getMessage());
             }
         }
-
+        stopCrawling();
         System.out.println("Crawling completato. Nessun'altra pagina da analizzare.");
     }
 
@@ -143,6 +143,13 @@ public class WineCrawler {
             e.printStackTrace();
         }
         return pagina;
+    }
+
+    public void stopCrawling() {
+        isRunning = false;
+    }
+    public boolean isRunning() {
+        return isRunning;
     }
 
 }

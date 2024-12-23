@@ -1,3 +1,7 @@
+//classe utilizzata per trovare le enoteche in base alla posizione
+//presenta 2 metodi principali: trovare le enoteche + vicine oppure
+//trovare le enoteche con una valutazione + alta su google
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -18,20 +22,23 @@ public class EnotecaFind {
 
     public static String findNearestEnoteca(double latitude, double longitude) {
         try {
+            //sostituisco la virgola con il punto necessario per elaborare il link per overpass API
             String latStr = String.valueOf(latitude).replace(",", ".");
             String lonStr = String.valueOf(longitude).replace(",", ".");
+            //parto da un raggio di 5km
             int radius = 5000;
             HttpClient client = HttpClient.newHttpClient();
             JSONArray elements = new JSONArray();
             List<String> enotecaResults = new ArrayList<>();
 
-            while (radius <= 50000 && enotecaResults.size() < 3) { // Continua finché non trovi 3 enoteche
+            while (radius <= 50000 && enotecaResults.size() < 3) { //continua finché non trovi 3 enoteche e il raggio non deve superare i 50 km
+                //elaboro il link per overpassApi: shop=wine -> parametro per ricercare le enoteche
                 String query = String.format(
                         "[out:json];node[\"shop\"=\"wine\"](around:%d,%s,%s);out;",
                         radius, latStr, lonStr);
                 String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
                 String url = "https://overpass-api.de/api/interpreter?data=" + encodedQuery;
-
+                //richiesta HTTP con il link prima elaborato
                 HttpRequest request = HttpRequest.newBuilder()
                         .uri(URI.create(url))
                         .GET()
@@ -41,10 +48,10 @@ public class EnotecaFind {
                 JSONObject jsonObject = new JSONObject(response.body());
                 elements = jsonObject.getJSONArray("elements");
 
-                // Aggiungi i risultati finché non raggiungi 3
+                // Aggiungi i risultati finché non raggiungi 3-> se ci sono 10 enoteche nel raggio di 5000km prendo solo le prime 3
                 for (int i = 0; i < elements.length() && enotecaResults.size() < 3; i++) {
                     JSONObject enotecaJson = elements.getJSONObject(i);
-                    JSONObject tags = enotecaJson.optJSONObject("tags");  // Ottieni il JSON dei tag
+                    JSONObject tags = enotecaJson.optJSONObject("tags");  //ottieni il JSON dei tag
                     if (tags == null || !tags.has("name") || tags.getString("name").isEmpty()) {
                         continue;  // Se il tag 'name' è mancante o vuoto, salta questa enoteca
                     }
@@ -63,9 +70,8 @@ public class EnotecaFind {
                     enotecaResults.add(String.format("Nome: %s\nPosizione: %s", name, locationLink));
                 }
 
-                if (enotecaResults.size() < 3) {
-                    radius += 5000;  // Espandi il raggio se non hai ancora trovato 3 risultati
-                }
+                radius += 5000;  // Espandi il raggio
+
             }
 
             // Se sono stati trovati meno di 3 risultati
@@ -89,7 +95,7 @@ public class EnotecaFind {
         try {
             String latStr = String.valueOf(latitude).replace(",", ".");
             String lonStr = String.valueOf(longitude).replace(",", ".");
-            int radius = 30000; // Raggio massimo di 15 km
+            int radius = 30000; // Raggio massimo di 30 km
 
             HttpClient client = HttpClient.newHttpClient();
             String query = String.format(
@@ -113,9 +119,9 @@ public class EnotecaFind {
                 JSONObject enotecaJson = elements.getJSONObject(i);
                 JSONObject tags = enotecaJson.optJSONObject("tags");
 
-                // Verifica che il tag 'name' esista prima di continuare
+                //verifica che il tag 'name' esista prima di continuare
                 if (tags == null || !tags.has("name")) {
-                    continue; // Salta l'iterazione se non c'è il nome
+                    continue; //salta l'iterazione se non c'è il nome
                 }
 
                 String name = tags.getString("name");
@@ -126,10 +132,10 @@ public class EnotecaFind {
                 enotecas.add(new Enoteca(name, enotecaLat, enotecaLon, rating));
             }
 
-            // Ordina la lista in base alla valutazione
+            //ordina la lista in base alla valutazione
             enotecas.sort(Comparator.comparingDouble(Enoteca::getRatingValue).reversed());
 
-            // Costruisci il messaggio da inviare
+            //costruisci il messaggio da inviare
             StringBuilder responseMessage = new StringBuilder("Enoteche ordinate per valutazione:\n\n");
             for (Enoteca enoteca : enotecas) {
                 String name = enoteca.getName();

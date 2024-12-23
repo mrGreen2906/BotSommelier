@@ -9,15 +9,17 @@ import java.util.concurrent.BlockingQueue;
 public class DatabaseInserter extends Thread {
     private final BlockingQueue<WineData> wineQueue;
     private final DatabaseManager dbManager;
+    private final WineCrawler crawler;
 
-    public DatabaseInserter(BlockingQueue<WineData> wineQueue, DatabaseManager dbManager) {
+    public DatabaseInserter(BlockingQueue<WineData> wineQueue, DatabaseManager dbManager, WineCrawler crawler) {
         this.wineQueue = wineQueue;
         this.dbManager = dbManager;
+        this.crawler = crawler;
     }
 
     @Override
     public void run() {
-        while (true) {
+        while (crawler.isRunning() || !wineQueue.isEmpty()) {
             try {
                 // Prende il vino dalla coda
                 WineData wineData = wineQueue.take();

@@ -1,3 +1,5 @@
+//classe enoteca usata per salvare tutte le info di un vino dal sito "signorvino"
+//per poi inserirle nel db
 public class Enoteca {
     private String name;
     private double latitude;
@@ -29,16 +31,16 @@ public class Enoteca {
 
     public double getRatingValue() {
         if (rating == null || rating.equals("N/D")) {
-            return Double.MIN_VALUE; // Valutazione mancante, usa il valore più basso
+            return Double.MIN_VALUE; //valutazione mancante, usa il valore più basso
         }
 
-        // Sostituisci la virgola con il punto se necessario
+        //sostituisci la virgola con il punto se necessario
         rating = rating.replace(",", ".");
 
         try {
-            return Double.parseDouble(rating); // Restituisci il valore numerico
+            return Double.parseDouble(rating); //restituisci il valore numerico
         } catch (NumberFormatException e) {
-            return Double.MIN_VALUE; // Se la valutazione non è valida, restituisci un valore basso
+            return Double.MIN_VALUE; //se la valutazione non è valida, restituisci un valore basso
         }
     }
 }

@@ -12,6 +12,7 @@ import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.*;
 
 public class MyTelegramBot extends TelegramLongPollingBot {
@@ -24,7 +25,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
     private boolean awaitingConfirmation = false;
     private String suggestedDish = "";
     private final Map<String, String> filters = new HashMap<>(); // Filtri per la query SQL
-
+    private LocalDate lastCrawlDate = LocalDate.now().minusWeeks(2);
     private double userLatitude = 0;
     private double userLongitude = 0;
 
@@ -49,28 +50,59 @@ public class MyTelegramBot extends TelegramLongPollingBot {
             SendMessage sendMessage = new SendMessage();
             sendMessage.setChatId(chatId);
 
-            if (messageText.equalsIgnoreCase("/start")) {
-                sendOptionsMessage(chatId); // Mostra i pulsanti iniziali per "Ricerca Enoteche" e "Abbina Piatto"
+            if(awaitingConfirmation){
+                messageText = update.getMessage().getText();
+                handleDishConfirmation(messageText, sendMessage);
+            }
+           else if (messageText.equalsIgnoreCase("/start")) {
+                //inizia il processo di crawling e inserimento nel database
+
+                if (LocalDate.now().isAfter(lastCrawlDate.plusWeeks(2))) {
+                    DatabaseManager dbManager = new DatabaseManager();
+                    WineCrawler crawler = new WineCrawler();
+                    DatabaseInserter inserter = new DatabaseInserter(crawler.wineQueue, dbManager, crawler);
+
+// Avvia il thread di inserimento nel DB
+                    inserter.start();
+
+// Esegui il crawling
+                    crawler.crawlWineData();
 
 
-                } else if (messageText.startsWith("/filtro_prezzo")) {
-                    // Filtro per prezzo
-                    handlePriceFilter(messageText, sendMessage);
-                } else if (messageText.startsWith("/filtro_regione")) {
-                    // Filtro per regione
-                    handleRegionFilter(messageText, sendMessage);
-                } else if (messageText.startsWith("/filtro_cantina")) {
-                    // Filtro per cantina
-                    handleWineryFilter(messageText, sendMessage);
-                } else if (messageText.equalsIgnoreCase("/risultati")) {
-                    // Mostra i risultati in base ai filtri applicati
-                    showResults(sendMessage);
+                    sendMessage.setText("Inizio il processo di crawling e inserimento dati nel database.");
+                    sendResponse(sendMessage);
+
+                    lastCrawlDate = LocalDate.now();
+                    sendMessage.setText("I dati sui vini sono stati aggiornati.");
+                    sendResponse(sendMessage);
                 } else {
-                    // Comando non riconosciuto
-                    sendMessage.setText("Comando non riconosciuto. Usa uno dei seguenti comandi:\n" +
-                            "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
+                    sendMessage.setText("I dati sui vini sono già aggiornati.");
                     sendResponse(sendMessage);
                 }
+
+
+
+
+                sendOptionsMessage(chatId); //mostro i pulsanti iniziali per "Ricerca Enoteche" e "Abbina Piatto"
+
+            } else if (messageText.startsWith("/filtro_prezzo")) {
+                // Filtro per prezzo
+                handlePriceFilter(messageText, sendMessage);
+            } else if (messageText.startsWith("/filtro_regione")) {
+                // Filtro per regione
+                handleRegionFilter(messageText, sendMessage);
+            } else if (messageText.startsWith("/filtro_cantina")) {
+                // Filtro per cantina
+                handleWineryFilter(messageText, sendMessage);
+            } else if (messageText.equalsIgnoreCase("/risultati")) {
+                // Mostra i risultati in base ai filtri applicati
+                showResults(sendMessage);
+            } else {
+                // Comando non riconosciuto
+                sendMessage.setText("Comando non riconosciuto. Usa il seguente comando per iniziare una conversazione:\n" +
+                        "/start");
+                sendResponse(sendMessage);
+            }
         }
 
         // Gestisce i callback dei pulsanti
@@ -84,7 +116,7 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                 case "ricerca_enoteche":
                     // Quando l'utente sceglie "Ricerca Enoteche"
                     sendTextMessage(chatId, "Per favore, inviami la tua posizione per trovare le enoteche più vicine o meglio valutate.");
-                    awaitingConfirmation = true; // Attende la posizione
+                    //awaitingConfirmation = true; // Attende la posizione
                     break;
 
                 case "abbina_piatto":
@@ -94,12 +126,12 @@ public class MyTelegramBot extends TelegramLongPollingBot {
                     awaitingConfirmation = true; // Attende una foto
                     break;
 
-                case "vicinanza":
+                case "filtro_vicinanza":
                     // Quando l'utente sceglie di ordinare per vicinanza
                     handleVicinanza(chatId);  // Gestisce la ricerca in base alla vicinanza
                     break;
 
-                case "valutazione":
+                case "filtro_valutazione":
                     // Quando l'utente sceglie di ordinare per valutazione
                     handleValutazione(chatId);  // Gestisce la ricerca in base alla valutazione
                     break;
@@ -133,10 +165,15 @@ public class MyTelegramBot extends TelegramLongPollingBot {
 
             // Simula il suggerimento casuale di un piatto
             suggestRandomDish(sendMessage); // Funzione che suggerisce un piatto casuale
+            if(awaitingConfirmation){
+                String messageText = update.getMessage().getText();
+                handleDishConfirmation(messageText, sendMessage);
+            }
 
+            System.out.println("btooo");
             // Invita l'utente ad applicare i filtri con comandi
             sendMessage.setText("Ora puoi applicare i filtri per la tua ricerca. Usa i seguenti comandi:\n" +
-                    "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>");
+                    "/filtro_prezzo <min>-<max>\n/filtro_regione <nome regione>\n/filtro_cantina <nome cantina>\n/risultati");
             sendResponse(sendMessage); // Invia il messaggio con le istruzioni sui filtri
         }
 
